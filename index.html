@@ -1,0 +1,224 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Rastreador de Inversiones</title>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --background-color: #121212;
+            --card-background: #1e1e1e;
+            --text-color: #ffffff;
+            --accent-color: #4caf50;
+            --border-color: #2a2a2a;
+        }
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: var(--background-color);
+            color: var(--text-color);
+            line-height: 1.6;
+            margin: 0;
+            padding: 20px;
+        }
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+        }
+        h1 {
+            font-size: 2.5rem;
+            font-weight: 700;
+            margin-bottom: 30px;
+        }
+        #netWorth {
+            font-size: 3rem;
+            font-weight: 700;
+            color: var(--accent-color);
+            margin-bottom: 30px;
+        }
+        .chart-placeholder {
+            background-color: var(--card-background);
+            height: 300px;
+            border-radius: 8px;
+            margin-bottom: 30px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 1.2rem;
+            color: #888;
+        }
+        .holdings {
+            background-color: var(--card-background);
+            border-radius: 8px;
+            padding: 20px;
+            margin-bottom: 30px;
+        }
+        .holdings h2 {
+            font-size: 1.5rem;
+            margin-bottom: 20px;
+        }
+        table {
+            width: 100%;
+            border-collapse: separate;
+            border-spacing: 0 10px;
+        }
+        th {
+            text-align: left;
+            padding: 10px;
+            font-weight: 600;
+            color: #888;
+        }
+        td {
+            background-color: var(--background-color);
+            padding: 15px 10px;
+        }
+        tr:hover td {
+            background-color: #252525;
+        }
+        td:first-child {
+            border-top-left-radius: 8px;
+            border-bottom-left-radius: 8px;
+        }
+        td:last-child {
+            border-top-right-radius: 8px;
+            border-bottom-right-radius: 8px;
+        }
+        .profit { color: #4caf50; }
+        .loss { color: #f44336; }
+        .input-group {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 20px;
+        }
+        input, select, button {
+            font-family: 'Inter', sans-serif;
+            font-size: 0.9rem;
+            padding: 10px;
+            background-color: var(--card-background);
+            border: 1px solid var(--border-color);
+            color: var(--text-color);
+            border-radius: 4px;
+        }
+        input, select {
+            flex-grow: 1;
+        }
+        button {
+            background-color: var(--accent-color);
+            color: var(--background-color);
+            border: none;
+            cursor: pointer;
+            font-weight: 600;
+            transition: background-color 0.3s;
+        }
+        button:hover {
+            background-color: #45a049;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>Rastreador de Inversiones</h1>
+        <div id="netWorth"></div>
+        <div class="chart-placeholder">Gráfico de patrimonio neto (simulado)</div>
+        <div class="holdings">
+            <h2>Holdings</h2>
+            <div class="input-group">
+                <input type="text" id="assetName" placeholder="Nombre del activo">
+                <input type="number" id="quantity" placeholder="Cantidad">
+                <input type="number" id="buyPrice" placeholder="Precio de compra">
+                <input type="number" id="currentPrice" placeholder="Precio actual">
+                <select id="assetCategory">
+                    <option value="">Categoría</option>
+                    <option value="Acciones">Acciones</option>
+                    <option value="ETFs">ETFs</option>
+                    <option value="Cripto">Criptomonedas</option>
+                    <option value="Efectivo">Efectivo</option>
+                    <option value="Otros">Otros</option>
+                </select>
+                <button onclick="addAsset()">Agregar</button>
+            </div>
+            <table id="assetTable">
+                <thead>
+                    <tr>
+                        <th>Nombre</th>
+                        <th>Categoría</th>
+                        <th>Cantidad</th>
+                        <th>Precio de Compra</th>
+                        <th>Precio Actual</th>
+                        <th>Valor Total</th>
+                        <th>P&L</th>
+                        <th></th>
+                    </tr>
+                </thead>
+                <tbody></tbody>
+            </table>
+        </div>
+    </div>
+
+    <script>
+        let assets = [];
+
+        function addAsset() {
+            const assetName = document.getElementById('assetName').value;
+            const quantity = parseFloat(document.getElementById('quantity').value);
+            const buyPrice = parseFloat(document.getElementById('buyPrice').value);
+            const currentPrice = parseFloat(document.getElementById('currentPrice').value);
+            const category = document.getElementById('assetCategory').value;
+
+            if (assetName && !isNaN(quantity) && !isNaN(buyPrice) && !isNaN(currentPrice) && category) {
+                assets.push({ assetName, quantity, buyPrice, currentPrice, category });
+                updateTable();
+                updateNetWorth();
+                clearInputs();
+            } else {
+                alert("Por favor, completa todos los campos con valores válidos.");
+            }
+        }
+
+        function updateTable() {
+            const tbody = document.querySelector('#assetTable tbody');
+            tbody.innerHTML = '';
+            assets.forEach((asset, index) => {
+                const totalValue = asset.quantity * asset.currentPrice;
+                const pnl = totalValue - (asset.quantity * asset.buyPrice);
+                const pnlPercentage = (pnl / (asset.quantity * asset.buyPrice)) * 100;
+                const row = tbody.insertRow();
+                row.innerHTML = `
+                    <td>${asset.assetName}</td>
+                    <td>${asset.category}</td>
+                    <td>${asset.quantity}</td>
+                    <td>$${asset.buyPrice.toFixed(2)}</td>
+                    <td>$${asset.currentPrice.toFixed(2)}</td>
+                    <td>$${totalValue.toFixed(2)}</td>
+                    <td class="${pnl >= 0 ? 'profit' : 'loss'}">
+                        $${pnl.toFixed(2)} (${pnlPercentage.toFixed(2)}%)
+                    </td>
+                    <td><button onclick="removeAsset(${index})">Eliminar</button></td>
+                `;
+            });
+        }
+
+        function removeAsset(index) {
+            assets.splice(index, 1);
+            updateTable();
+            updateNetWorth();
+        }
+
+        function clearInputs() {
+            document.getElementById('assetName').value = '';
+            document.getElementById('quantity').value = '';
+            document.getElementById('buyPrice').value = '';
+            document.getElementById('currentPrice').value = '';
+            document.getElementById('assetCategory').value = '';
+        }
+
+        function updateNetWorth() {
+            const netWorth = assets.reduce((total, asset) => total + (asset.quantity * asset.currentPrice), 0);
+            document.getElementById('netWorth').textContent = `$${netWorth.toFixed(2)}`;
+        }
+
+        // Inicializar
+        updateNetWorth();
+    </script>
+</body>
+</html>
