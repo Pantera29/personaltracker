@@ -123,10 +123,10 @@
         <div class="holdings">
             <h2>Holdings</h2>
             <div class="input-group">
-                <input type="text" id="assetName" placeholder="Nombre del activo">
+                <input type="text" id="assetName" placeholder="Nombre del activo (ticker)">
                 <input type="number" id="quantity" placeholder="Cantidad">
                 <input type="number" id="buyPrice" placeholder="Precio de compra">
-                <input type="number" id="currentPrice" placeholder="Precio actual">
+                <input type="number" id="currentPrice" placeholder="Precio actual (opcional para acciones/cripto)">
                 <select id="assetCategory">
                     <option value="">Categoría</option>
                     <option value="Acciones">Acciones</option>
@@ -157,19 +157,68 @@
 
     <script>
         let assets = [];
+        let quotes = {};
+        const SHEET_URL = 'https://script.google.com/macros/s/AKfycbxcHmG5WrmaGwEdoAv1vIBnyU3oakumj87-c83iXIW92CMyhn1uFNo9V37YQ7HLEQ/exec';
 
-        function addAsset() {
-            const assetName = document.getElementById('assetName').value;
-            const quantity = parseFloat(document.getElementById('quantity').value);
-            const buyPrice = parseFloat(document.getElementById('buyPrice').value);
-            const currentPrice = parseFloat(document.getElementById('currentPrice').value);
-            const category = document.getElementById('assetCategory').value;
+        async function loadData() {
+            try {
+                const response = await fetch(SHEET_URL);
+                const data = await response.json();
+                
+                // Cargar cotizaciones
+                quotes = data.reduce((acc, row) => {
+                    if (row[0] && row[1]) {
+                        acc[row[0]] = parseFloat(row[1]);
+                    }
+                    return acc;
+                }, {});
 
-            if (assetName && !isNaN(quantity) && !isNaN(buyPrice) && !isNaN(currentPrice) && category) {
-                assets.push({ assetName, quantity, buyPrice, currentPrice, category });
+                // Cargar activos (asumiendo que están en la misma hoja, después de las cotizaciones)
+                assets = data.filter(row => row.length > 4).map(row => ({
+                    assetName: row[0],
+                    quantity: parseFloat(row[1]),
+                    buyPrice: parseFloat(row[2]),
+                    currentPrice: parseFloat(row[3]),
+                    category: row[4]
+                }));
+
                 updateTable();
                 updateNetWorth();
-                clearInputs();
+            } catch (error) {
+                console.error('Error al cargar los datos:', error);
+            }
+        }
+
+        async function addAsset() {
+            const assetName = document.getElementById('assetName').value.toUpperCase();
+            const quantity = parseFloat(document.getElementById('quantity').value);
+            const buyPrice = parseFloat(document.getElementById('buyPrice').value);
+            const category = document.getElementById('assetCategory').value;
+            let currentPrice = parseFloat(document.getElementById('currentPrice').value);
+
+            if ((category === 'Acciones' || category === 'Cripto' || category === 'ETFs') && quotes[assetName]) {
+                currentPrice = quotes[assetName];
+            } else if (!currentPrice) {
+                alert("Por favor, ingresa un precio actual para este activo.");
+                return;
+            }
+
+            if (assetName && !isNaN(quantity) && !isNaN(buyPrice) && !isNaN(currentPrice) && category) {
+                const newAsset = { assetName, quantity, buyPrice, currentPrice, category };
+                assets.push(newAsset);
+                
+                try {
+                    await fetch(SHEET_URL, {
+                        method: 'POST',
+                        body: JSON.stringify(newAsset)
+                    });
+                    updateTable();
+                    updateNetWorth();
+                    clearInputs();
+                } catch (error) {
+                    console.error('Error al agregar el activo:', error);
+                    alert('Hubo un error al agregar el activo. Por favor, intenta de nuevo.');
+                }
             } else {
                 alert("Por favor, completa todos los campos con valores válidos.");
             }
@@ -181,7 +230,7 @@
             assets.forEach((asset, index) => {
                 const totalValue = asset.quantity * asset.currentPrice;
                 const pnl = totalValue - (asset.quantity * asset.buyPrice);
-                const pnlPercentage = (pnl / (asset.quantity * asset.buyPrice)) * 100;
+                const pnlPercentage = ((asset.currentPrice / asset.buyPrice) - 1) * 100;
                 const row = tbody.insertRow();
                 row.innerHTML = `
                     <td>${asset.assetName}</td>
@@ -198,10 +247,11 @@
             });
         }
 
-        function removeAsset(index) {
+        async function removeAsset(index) {
             assets.splice(index, 1);
             updateTable();
             updateNetWorth();
+            // Aquí deberías implementar la lógica para eliminar el activo de la hoja de Google también
         }
 
         function clearInputs() {
@@ -218,7 +268,7 @@
         }
 
         // Inicializar
-        updateNetWorth();
+        loadData();
     </script>
 </body>
 </html>
